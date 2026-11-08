@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f7f8fb">
+  <meta name="description" content="니모디 — 지금 있는 자리를 선택하고 공유하세요.">
+  <title>니모디 · NimOdi</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --background:#f7f8fb;
+      --surface:#ffffff;
+      --border:#dfe5ee;
+      --text:#202a3b;
+      --muted:#687587;
+      --accent:#ee497b;
+      --accent-hover:#d83368;
+      --seat:#e1e6ed;
+      --seat-border:#9aa8b9;
+      --shadow:0 12px 36px rgba(37,48,69,.06);
+    }
+    * {box-sizing:border-box}
+    html,body {width:100%;height:100%;margin:0}
+    html {background:var(--background)}
+    body {overflow:hidden;background:var(--background);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;color:var(--text);line-height:1.4}
+    button {font:inherit;cursor:pointer; -webkit-tap-highlight-color:transparent}
+    button:focus-visible {outline:3px solid #ee497b;outline-offset:3px}
+    .app {max-width:1540px;height:100vh;height:100dvh;min-height:0;margin:auto;padding:clamp(10px,1.9vh,18px) clamp(10px,1.7vw,24px);display:flex;flex-direction:column;gap:clamp(8px,1.3vh,13px)}
+    .top {flex:0 0 auto;min-height:56px;display:flex;align-items:center}
+    .brand {display:flex;align-items:center;gap:11px;min-width:0}
+    .mark {width:41px;height:41px;display:grid;place-items:center;background:#ffebf1;color:#da2e66;border-radius:12px}
+    .mark svg {width:24px;height:24px}
+    .brand-name {font-size:25px;letter-spacing:-.06em;font-weight:850;white-space:nowrap}
+    .brand-latin {font-size:12px;color:#8d97a6;font-weight:700;letter-spacing:.01em;margin-left:7px}
+    .workspace {flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 273px;gap:14px}
+    .map-card,.share-card {min-height:0;background:var(--surface);border:1px solid var(--border);border-radius:19px;box-shadow:var(--shadow)}
+    .map-card {display:flex;flex-direction:column;overflow:hidden}
+    .map-toolbar {height:53px;min-height:53px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 17px;border-bottom:1px solid #e9edf3}
+    .map-title {display:flex;align-items:center;gap:9px;min-width:0;font-size:14px;font-weight:750;white-space:nowrap}
+    .hint-dot {display:inline-flex;width:8px;height:8px;border-radius:100%;background:#ef5987;flex:none}
+    .tools {display:flex;align-items:center;gap:18px;min-width:0}
+    .legend {display:flex;align-items:center;gap:12px;color:#778293;font-size:12px;white-space:nowrap}
+    .legend span {display:inline-flex;align-items:center;gap:6px}
+    .swatch {height:12px;width:13px;border-radius:4px;background:#e1e6ed;border:1px solid #aab4c0}
+    .swatch.selected {background:var(--accent);border-color:#d22e65}
+    .zoom {display:flex;align-items:center;gap:2px;border:1px solid #e2e7ef;background:#f8fafc;border-radius:10px;padding:2px}
+    .zoom button {min-width:28px;height:29px;padding:0 6px;display:grid;place-items:center;border:0;border-radius:7px;background:transparent;font-size:17px;font-weight:550;color:#4b5a6d}
+    .zoom button:hover:not(:disabled) {background:#e8edf5}
+    .zoom button:disabled {opacity:.32;cursor:default}
+    .zoom .fit {width:auto;font-size:11px;font-weight:720;padding:0 7px}
+    .map-stage {position:relative;flex:1;min-width:0;min-height:0;overflow:hidden;background:#fbfcfe;overscroll-behavior:contain;scrollbar-color:#ccd5e1 #f6f8fb}
+    .map-align {display:grid;place-items:center}
+    .map-canvas {flex:none;min-width:0;min-height:0}
+    #map {width:100%;height:100%;display:block;user-select:none;-webkit-user-select:none;touch-action:pan-x pan-y}
+    .plan-wall {fill:none;stroke:#7b8798;stroke-width:3.7;stroke-linecap:round;stroke-linejoin:round}
+    /* 실제 책상 한 개는 하나의 외곽선, 위·아래의 선택 가능한 두 반쪽으로 구성. */
+    .desk-half {fill:var(--seat);cursor:pointer;transition:fill .12s ease;outline:none}
+    .desk-half:hover {fill:#fbc9d9}
+    .desk-half.is-selected,.desk-half.is-selected:hover {fill:var(--accent)}
+    .desk-half:focus-visible {stroke:#d92966;stroke-width:2.4;paint-order:stroke}
+    .desk-outline {fill:none;stroke:var(--seat-border);stroke-width:1.8;pointer-events:none}
+    .desk-divider {stroke:#9caabb;stroke-width:1.1;pointer-events:none}
+    .floor-choice {cursor:pointer;outline:none}
+    .floor-choice rect {fill:#fff;stroke:#bbd8c5;stroke-width:1.8;transition:fill .13s ease,stroke .13s ease}
+    .floor-choice text {fill:#426c58;font-size:29px;font-weight:800;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+    .floor-choice:hover rect {fill:#d9f2e3;stroke:#5a9e76}
+    .floor-choice[aria-pressed="true"] rect,.floor-choice[aria-pressed="true"]:hover rect {fill:#2d855c;stroke:#226a49;stroke-width:2.5}
+    .floor-choice[aria-pressed="true"] text {fill:#fff}
+    .floor-choice:focus-visible rect {stroke:#ee497b;stroke-width:4}
+    .partition {fill:#fff0e9;stroke:#edbda8;stroke-width:1.4}
+    .partition-text {fill:#99533c;font-size:22px;font-weight:780;text-anchor:middle;dominant-baseline:central}
+    .locker {fill:#f0f3f7;stroke:#aab5c3;stroke-width:1.5}
+    .locker-text {fill:#48576e;font-size:22px;font-weight:760;text-anchor:middle;dominant-baseline:central}
+    .floor-block {fill:#ecf7f0;stroke:#acd4bb;stroke-width:1.5}
+    .share-card {display:flex;flex-direction:column;padding:20px;min-width:0}
+    .share-heading {font-size:12px;letter-spacing:.02em;font-weight:750;color:#818c9d;margin:0 0 17px}
+    .share-status {display:flex;align-items:flex-start;gap:11px;min-width:0}
+    .status-icon {flex:0 0 39px;width:39px;height:39px;display:grid;place-items:center;background:#f0f3f7;color:#9ca6b4;border-radius:12px}
+    .status-icon svg {width:21px;height:21px}
+    .is-ready .status-icon {color:#d8306b;background:#ffedf2}
+    .state-title {font-size:15px;font-weight:800;letter-spacing:-.035em;line-height:1.55}
+    .state-subtitle {color:var(--muted);font-size:12px;margin-top:4px;word-break:keep-all}
+    .share-gap {flex:1;min-height:12px}
+    .share-actions {display:flex;flex-direction:column;gap:8px}
+    .action {width:100%;height:43px;border-radius:11px;border:1px solid #dce3ed;background:#fff;color:#34445b;font-size:13px;font-weight:770}
+    .action:hover:not(:disabled) {background:#f3f6fa}
+    .action.primary {color:#fff;background:var(--accent);border-color:var(--accent)}
+    .action.primary:hover:not(:disabled) {background:var(--accent-hover)}
+    .action:disabled {cursor:not-allowed;opacity:.46}
+    .clear {align-self:flex-start;padding:8px 0;color:#8b96a4;background:none;border:0;font-size:12px;font-weight:680}
+    .clear:not(:disabled):hover {color:#b92d5c}
+    .share-bottom {border-top:1px solid #ecf0f4;margin-top:10px;padding-top:11px;display:flex;align-items:center;gap:8px;color:#8e99a8;font-size:11px}
+    .mini-seat {display:inline-block;width:12px;height:12px;border-radius:4px;background:#e1e6ed;border:1px solid #aab4c0}
+    .mini-seat.on {background:var(--accent);border-color:#d22e65;margin-left:6px}
+    .feedback {font-size:12px;color:#536377;min-height:32px;margin-top:12px;line-height:1.4;word-break:keep-all}
+    .feedback.success {color:#207b56}
+    .feedback.warning {color:#b36338}
+    @media(max-width:1000px) {
+      .top {display:flex;justify-content:space-between;gap:12px}
+      .workspace {grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto;gap:10px}
+      .share-card {display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px 12px;padding:11px 14px;border-radius:15px}
+      .share-heading,.share-gap,.share-bottom {display:none}
+      .share-status {align-items:center}
+      .state-title {font-size:13px}
+      .state-subtitle {margin-top:1px;font-size:11px}
+      .status-icon {width:34px;height:34px;flex-basis:34px;border-radius:10px}
+      .share-actions {flex-direction:row;gap:6px}
+      .action {width:auto;min-width:90px;height:36px;padding:0 13px;font-size:12px}
+      .clear {grid-column:1 / -1;padding:0;margin:0;justify-self:end}
+      .feedback {grid-column:1 / -1;margin:0;min-height:0;font-size:11px}
+    }
+    @media(max-width:600px) {
+      .app {padding:9px 9px 10px;gap:8px}
+      .top {min-height:44px}
+      .mark {height:34px;width:34px;border-radius:10px}
+      .mark svg {width:21px;height:21px}
+      .brand {gap:7px}
+      .brand-name {font-size:21px}
+      .brand-latin {font-size:10px;margin-left:4px}
+      .map-card {border-radius:14px}
+      .map-toolbar {height:43px;min-height:43px;padding:0 10px}
+      .map-title {font-size:12px;gap:6px}
+      .legend {display:none}
+      .tools {gap:0}
+      .zoom button {min-width:25px;height:26px;font-size:15px}
+      .zoom .fit {font-size:10px;padding:0 4px}
+      .share-card {grid-template-columns:1fr;gap:7px;padding:10px}
+      .share-status {min-width:0}
+      .status-icon {height:29px;width:29px;flex-basis:29px;border-radius:8px}
+      .status-icon svg {height:17px;width:17px}
+      .state-title {font-size:12px;line-height:1.3}
+      .state-subtitle {font-size:10px}
+      .share-actions {display:grid;grid-template-columns:1fr 1fr;gap:7px}
+      .action {width:100%;min-width:0;height:34px}
+      .clear {grid-column:auto;justify-self:start;font-size:11px}
+      .feedback {grid-column:auto}
+    }
+    @media(max-height:620px) and (min-width:1001px) {
+      .top {min-height:42px}
+      .share-card {padding:15px}
+      .map-toolbar {height:43px;min-height:43px}
+    }
+    @media(prefers-reduced-motion:reduce) {.desk-half,.floor-choice rect {transition:none}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="top">
+      <div class="brand" aria-label="니모디 NimOdi">
+        <div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 7V4.5h2.5M17 4.5h2.5V7M4.5 17v2.5H7M17 19.5h2.5V17m-8.5-5 2.7 2.6 4.4-5.2"/></svg></div>
+        <div><span class="brand-name">니모디</span><span class="brand-latin">NimOdi</span></div>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <section class="map-card" aria-label="좌석 지도">
+        <div class="map-toolbar">
+          <div class="map-title"><span class="hint-dot" aria-hidden="true"></span><span id="instruction">자리를 선택해 주세요</span></div>
+          <div class="tools">
+            <div class="legend" aria-label="표시 설명"><span><i class="swatch" aria-hidden="true"></i>자리</span><span><i class="swatch selected" aria-hidden="true"></i>선택</span></div>
+            <div class="zoom" aria-label="지도 확대 축소">
+              <button type="button" id="zoom-out" aria-label="축소" title="축소">−</button>
+              <button type="button" id="zoom-fit" class="fit" title="한눈에 보기">맞춤</button>
+              <button type="button" id="zoom-in" aria-label="확대" title="확대">+</button>
+            </div>
+          </div>
+        </div>
+        <div class="map-stage" id="map-stage">
+          <div class="map-align" id="map-align"><div class="map-canvas" id="map-canvas">
+            <svg id="map" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 865" preserveAspectRatio="xMidYMid meet" role="group" aria-label="4층 좌석 배치도"></svg>
+          </div></div>
+        </div>
+      </section>
+
+      <aside class="share-card" id="share" aria-label="위치 공유">
+        <p class="share-heading">내 위치</p>
+        <div class="share-status">
+          <div class="status-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.4 7-12a7 7 0 0 0-14 0c0 5.6 7 12 7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg></div>
+          <div><div class="state-title" id="state-title">자리 선택 전</div><div class="state-subtitle" id="state-subtitle">지도에서 자리를 눌러주세요.</div></div>
+        </div>
+        <div class="share-gap"></div>
+        <div class="share-actions">
+          <button class="action" id="copy-msg" type="button" disabled>메시지 복사</button>
+          <button class="action primary" id="copy-link" type="button" disabled>링크 복사</button>
+        </div>
+        <button class="clear" id="clear" type="button" disabled>선택 해제</button>
+        <div class="share-bottom" aria-hidden="true"><span class="mini-seat"></span>자리<span class="mini-seat on"></span>선택한 자리</div>
+        <div class="feedback" id="feedback" role="status" aria-live="polite"></div>
+      </aside>
+    </main>
+  </div>
+<script>
+(() => {
+  'use strict';
+  const NS = 'http://www.w3.org/2000/svg';
+  const dom = id => document.getElementById(id);
+  const map = dom('map');
+  const stage = dom('map-stage');
+  const canvas = dom('map-canvas');
+  const align = dom('map-align');
+  const current = {floor:4, key:null, received:false, zoom:1};
+  const MAP_W = 1200, MAP_H = 865;
+  // 그룹·행·열은 URL 복원을 위한 비공개 내부 식별자이며 공식 좌석번호가 아닙니다.
+  // 원본 도면의 배치에 따라 모든 층을 확장된 1200 × 865 좌표계에 그립니다.
+  // 물리적 책상 1개 = 사각형 1개, 위쪽/아래쪽 선택영역 2개.
+  // 책상 크기 및 좌석 순서는 공유 링크 호환성을 위해 보존합니다.
+  // start~end는 각 구역의 첫 책상 상단 y 좌표입니다. 행 간격은 자동 계산합니다.
+  const spreadRows = (start, end, count) =>
+    Array.from({length:count}, (_,i) => Math.round(start+(end-start)*i/(count-1)));
+  const below4 = spreadRows(448,754,4);
+  const below5 = spreadRows(447,741,4);
+  const right5 = spreadRows(447,741,5);
+  const layout = {
+    4: {
+      floor:[778,29,286,215],
+      walls:[
+        'M26 840 V23 H583 V320 L648 368',
+        'M583 417 V610 H932 L988 593',
+        'M992 610 H1148 V840 H26'
+      ],
+      partition:[26,382,557,35],
+      lockers:[[1054,650,61,127]],
+      groups:[
+        ['a',50,52,6,80,26,4,4], ['b',50,133,6,80,26,4,4],
+        ['c',50,214,6,80,26,4,4], ['d',50,295,6,80,26,4,4],
+        ['e',50,below4[0],6,80,26,4,4], ['f',50,below4[1],6,80,26,4,4],
+        ['g',50,below4[2],6,80,26,4,4], ['h',645,below4[2],3,84,26,4,4],
+        ['i',50,below4[3],11,79,26,4,4]
+      ]
+    },
+    5: {
+      floor:[775,29,286,215],
+      walls:[
+        'M26 840 V23 H582 V319 L640 366',
+        'M582 416 V433 H1152 V635 L1186 674',
+        'M1152 683 V840 H26'
+      ],
+      partition:[26,382,556,34],
+      lockers:[[1062,452,58,132],[1062,673,58,133]],
+      groups:[
+        ['a',50,50,6,80,26,4,4], ['b',50,130,6,80,26,4,4],
+        ['c',50,210,6,80,26,4,4], ['d',50,290,6,80,26,4,4],
+        ['e',50,below5[0],6,80,26,4,4], ['f',50,below5[1],6,80,26,4,4],
+        ['g',50,below5[2],6,80,26,4,4], ['h',50,below5[3],6,80,26,4,4],
+        ['i',598,right5[0],6,69,26,4,3], ['j',598,right5[1],6,69,26,4,3],
+        ['k',598,right5[2],6,69,26,4,3], ['l',598,right5[3],6,69,26,4,3],
+        ['m',598,right5[4],6,69,26,4,3]
+      ]
+    }
+  };
+  const seatElements = new Map();
+  function svgEl(name, attrs={}, parent=map) {
+    const node = document.createElementNS(NS,name);
+    for (const [key,value] of Object.entries(attrs)) node.setAttribute(key,String(value));
+    parent.appendChild(node);
+    return node;
+  }
+  function svgText(value, attrs, parent=map) {const node=svgEl('text',attrs,parent);node.textContent=value;return node;}
+  function seatKeys(floor) {
+    const keys=[];
+    layout[floor].groups.forEach(([group,x,y,n]) => {
+      for(let row=0;row<2;row++)for(let col=0;col<n;col++) keys.push(`${group}.${row}.${col}`);
+    });
+    return keys;
+  }
+  const keysByFloor={4:seatKeys(4),5:seatKeys(5)};
+  function hashFor(floor,key) {
+    const index=keysByFloor[floor].indexOf(key);
+    return index<0?'':`#${floor}-${index.toString(36)}`;
+  }
+  function readHash() {
+    const hash=location.hash.slice(1);
+    const plain=hash.match(/^([45])-([0-9a-z]{1,3})$/i);
+    if(plain){const floor=Number(plain[1]), index=parseInt(plain[2],36);
+      if(Number.isSafeInteger(index)&&keysByFloor[floor][index]) return {floor,key:keysByFloor[floor][index]};
+    }
+    // 이전 버전의 링크도 복원하며 좌석 코드는 UI에 표시하지 않습니다.
+    const legacy=hash.match(/^([45])-([A-M])(\d{1,2})$/i);
+    if(legacy){const floor=Number(legacy[1]), group=legacy[2].toLowerCase(), n=Number(legacy[3]);
+      const definition=layout[floor].groups.find(v=>v[0]===group);
+      if(definition&&n>=1&&n<=definition[3]*2) return {floor,key:`${group}.${Math.floor((n-1)/definition[3])}.${(n-1)%definition[3]}`};
+    }
+    return null;
+  }
+  function updateAddress() {
+    const url=new URL(location.href);
+    url.hash=current.key?hashFor(current.floor,current.key):'';
+    history.replaceState(null,'',url);
+  }
+  function shareLink() {
+    const url=new URL(location.href);
+    url.hash=hashFor(current.floor,current.key);
+    return url.href;
+  }
+  function draw() {
+    const data=layout[current.floor];
+    seatElements.clear();map.replaceChildren();
+    map.setAttribute('aria-label',`${current.floor}층 좌석 배치도`);
+    svgEl('rect',{x:0,y:0,width:MAP_W,height:MAP_H,fill:'#fbfcfe'});
+    // SVG 패턴 한 개로 배경 점들을 그립니다 (수천 개의 개별 DOM 요소 제거).
+    const defs=svgEl('defs');
+    const pattern=svgEl('pattern',{id:'map-dots',width:30,height:30,patternUnits:'userSpaceOnUse'},defs);
+    svgEl('circle',{cx:28,cy:28,r:.65,fill:'#dce3eb'},pattern);
+    svgEl('rect',{x:0,y:0,width:MAP_W,height:MAP_H,fill:'url(#map-dots)','pointer-events':'none'});
+    const [fx,fy,fw,fh]=data.floor;
+    svgEl('rect',{x:fx,y:fy,width:fw,height:fh,rx:13,class:'floor-block'});
+    // 상단 독립 탭을 제거하고, 도면의 녹색 층 영역 자체를 층 선택기로 사용.
+    [4,5].forEach((floor,index)=>{
+      const x=fx+19+index*115, y=fy+53, w=110, h=109;
+      const option=svgEl('g',{
+        id:`floor${floor}`,class:'floor-choice',role:'button',tabindex:0,
+        'aria-label':`${floor}층 지도 보기`, 'aria-pressed':String(current.floor===floor)
+      });
+      svgEl('rect',{x,y,width:w,height:h,rx:14},option);
+      svgText(`${floor}층`,{x:x+w/2,y:y+h/2+2},option);
+      option.addEventListener('click',()=>switchFloor(floor));
+      option.addEventListener('keydown',event=>{
+        if(event.key==='Enter'||event.key===' '){event.preventDefault();switchFloor(floor);}
+      });
+    });
+    const [px,py,pw,ph]=data.partition;
+    svgEl('rect',{x:px,y:py,width:pw,height:ph,rx:3,class:'partition'});
+    svgText('접이식 파티션',{x:px+pw/2,y:py+ph/2,class:'partition-text'});
+    data.lockers.forEach(([x,y,w,h])=>{
+      svgEl('rect',{x,y,width:w,height:h,rx:5,class:'locker'});
+      // 세 글자를 실제 사물함처럼 위에서 아래로 배열하여 축소된 화면에서도 읽기 쉽게 표시.
+      ['사','물','함'].forEach((char,index)=>svgText(char,{x:x+w/2,y:y+h/2+(index-1)*29,class:'locker-text'}));
+    });
+    const seating=svgEl('g',{'aria-label':'자리 선택 영역'});
+    seating.addEventListener('click',event=>{
+      const target=event.target.closest?.('.desk-half');
+      if(target)choose(target.dataset.key);
+    });
+    seating.addEventListener('keydown',event=>{
+      if(event.key!=='Enter'&&event.key!==' ')return;
+      const target=event.target.closest?.('.desk-half');
+      if(!target)return;
+      event.preventDefault();choose(target.dataset.key);
+    });
+    data.groups.forEach(([group,x,y,n,width,height,gapX,gapY],groupIndex)=>{
+      const deskHeight=height*2+gapY;
+      const r=5.5;
+      for(let col=0;col<n;col++) {
+        const dx=x+col*(width+gapX),dy=y;
+        const desk=svgEl('g',{'aria-label':`${current.floor}층 구역의 책상`},seating);
+        // 하나의 외곽선 안에서 위쪽과 아래쪽을 선택하도록 경계가 맞닿는 경로를 만듭니다.
+        const top=`M ${dx+r} ${dy} H ${dx+width-r} Q ${dx+width} ${dy} ${dx+width} ${dy+r} V ${dy+deskHeight/2} H ${dx} V ${dy+r} Q ${dx} ${dy} ${dx+r} ${dy} Z`;
+        const bottom=`M ${dx} ${dy+deskHeight/2} H ${dx+width} V ${dy+deskHeight-r} Q ${dx+width} ${dy+deskHeight} ${dx+width-r} ${dy+deskHeight} H ${dx+r} Q ${dx} ${dy+deskHeight} ${dx} ${dy+deskHeight-r} Z`;
+        [top,bottom].forEach((d,row)=>{
+          const key=`${group}.${row}.${col}`;
+          const half=svgEl('path',{
+            d,class:'desk-half',tabindex:0,role:'button','data-key':key,
+            'aria-label':`${current.floor}층 ${groupIndex+1}번째 구역, 왼쪽에서 ${col+1}번째 책상의 ${row===0?'위쪽':'아래쪽'} 자리`,
+            'aria-pressed':'false'
+          },desk);
+          seatElements.set(key,half);
+        });
+        svgEl('line',{
+          x1:dx,y1:dy+deskHeight/2,x2:dx+width,y2:dy+deskHeight/2,class:'desk-divider'
+        },desk);
+        svgEl('rect',{x:dx,y:dy,width,height:deskHeight,rx:r,class:'desk-outline'},desk);
+      }
+    });
+    // 굵은 벽선은 가장 위 레이어에 렌더링해 파티션 양끝까지 선명하게 보입니다.
+    const wallsLayer=svgEl('g',{'aria-hidden':'true',class:'walls-foreground'});
+    data.walls.forEach(d=>svgEl('path',{d,class:'plan-wall'},wallsLayer));
+    renderSelection();
+  }
+  function renderSelection() {
+    seatElements.forEach((node,key)=>{
+      const chosen=current.key===key;
+      node.classList.toggle('is-selected',chosen);
+      if(node.getAttribute('aria-pressed')!==String(chosen))node.setAttribute('aria-pressed',String(chosen));
+    });
+    dom('floor4').setAttribute('aria-pressed',String(current.floor===4));
+    dom('floor5').setAttribute('aria-pressed',String(current.floor===5));
+    const selected=Boolean(current.key);
+    dom('share').classList.toggle('is-ready',selected);
+    ['clear','copy-msg','copy-link'].forEach(id=>dom(id).disabled=!selected);
+    dom('state-title').textContent=selected?`${current.floor}층 · 자리 선택됨`:'자리 선택 전';
+    dom('state-subtitle').textContent=selected?(current.received?'분홍색 자리가 공유된 위치입니다.':'링크를 복사해서 보내세요.'):'지도에서 자리를 눌러주세요.';
+    dom('instruction').textContent=current.received?'표시된 위치를 확인하세요':'자리를 선택해 주세요';
+  }
+  function feedback(message='',type='') {
+    dom('feedback').textContent=message;
+    dom('feedback').className='feedback'+(type?' '+type:'');
+  }
+  function choose(key) {
+    current.key=current.key===key&&!current.received?null:key;
+    current.received=false;updateAddress();renderSelection();feedback();
+  }
+  function switchFloor(floor) {
+    if(floor===current.floor)return;
+    current.floor=floor;current.key=null;current.received=false;
+    updateAddress();draw();updateFit();feedback();
+  }
+  function clear() {current.key=null;current.received=false;updateAddress();renderSelection();feedback();}
+  function loadFromHash() {
+    const parsed=readHash();
+    if(parsed){current.floor=parsed.floor;current.key=parsed.key;current.received=true;}
+    else {current.key=null;current.received=false;}
+    draw();updateFit();
+  }
+  async function copy(text) {
+    try {if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(text);return true;}} catch(err){}
+    const input=document.createElement('textarea');input.value=text;input.style.cssText='position:fixed;left:-9999px;top:0';document.body.appendChild(input);input.select();
+    let ok=false;try{ok=document.execCommand('copy');}catch(err){}input.remove();return ok;
+  }
+  async function doCopy(message=false) {
+    if(!current.key)return;
+    const content=message?`📍 니모디 · ${current.floor}층, 저 여기 있어요!\n${shareLink()}`:shareLink();
+    const ok=await copy(content);
+    if(!ok)feedback('복사할 수 없습니다. 브라우저 설정을 확인해 주세요.','warning');
+    else if(location.protocol==='file:')feedback('복사는 되었지만 로컬 파일 링크는 다른 사람이 열 수 없습니다. GitHub Pages에 올려주세요.','warning');
+    else feedback(message?'메시지를 복사했습니다.':'링크를 복사했습니다.','success');
+  }
+  function updateFit() {
+    const availableW=stage.clientWidth,availableH=stage.clientHeight;
+    if(availableW<1||availableH<1)return;
+    const base=Math.min((availableW-14)/MAP_W,(availableH-14)/MAP_H);
+    const drawW=Math.max(1,MAP_W*base*current.zoom),drawH=Math.max(1,MAP_H*base*current.zoom);
+    canvas.style.width=`${drawW}px`;canvas.style.height=`${drawH}px`;
+    align.style.width=`${Math.max(availableW,drawW)}px`;
+    align.style.height=`${Math.max(availableH,drawH)}px`;
+    stage.style.overflow=current.zoom===1?'hidden':'auto';
+    dom('zoom-out').disabled=current.zoom<=1;
+    dom('zoom-in').disabled=current.zoom>=3;
+    // 확대 시에는 중앙 또는 선택 좌석이 보이도록 스크롤을 조정합니다.
+    if(current.zoom>1) {
+      let rx=.5,ry=.5;
+      if(current.key) {
+        const seat=seatElements.get(current.key);
+        if(seat){const b=seat.getBBox();rx=(b.x+b.width/2)/MAP_W;ry=(b.y+b.height/2)/MAP_H;}
+      }
+      stage.scrollLeft=Math.max(0,(Math.max(availableW,drawW)-availableW)*rx);
+      stage.scrollTop=Math.max(0,(Math.max(availableH,drawH)-availableH)*ry);
+    } else {stage.scrollLeft=0;stage.scrollTop=0;}
+  }
+  function zoom(delta) {current.zoom=Math.max(1,Math.min(3,Math.round((current.zoom+delta)*4)/4));updateFit();}
+  dom('clear').addEventListener('click',clear);
+  dom('copy-link').addEventListener('click',()=>doCopy(false));
+  dom('copy-msg').addEventListener('click',()=>doCopy(true));
+  dom('zoom-in').addEventListener('click',()=>zoom(.25));
+  dom('zoom-out').addEventListener('click',()=>zoom(-.25));
+  dom('zoom-fit').addEventListener('click',()=>{current.zoom=1;updateFit();});
+  window.addEventListener('hashchange',loadFromHash);
+  window.addEventListener('resize',updateFit);
+  if(typeof ResizeObserver!=='undefined') new ResizeObserver(updateFit).observe(stage);
+  loadFromHash();
+})();
+</script>
+</body>
+</html>
