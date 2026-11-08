@@ -200,11 +200,13 @@
   const canvas = dom('map-canvas');
   const align = dom('map-align');
   const current = {floor:4, key:null, received:false, zoom:1};
-  const MAP_W = 1200, MAP_H = 865;
+  const MAP_W = {4:1200, 5:1300}, MAP_H = 865;
+  const floorWidth = () => MAP_W[current.floor];
   // 그룹·행·열은 URL 복원을 위한 비공개 내부 식별자이며 공식 좌석번호가 아닙니다.
-  // 원본 도면의 배치에 따라 모든 층을 확장된 1200 × 865 좌표계에 그립니다.
+  // 실제 층별 공간 차이를 반영한 SVG 도면: 4층 1200×865, 5층 1300×865.
   // 물리적 책상 1개 = 사각형 1개, 위쪽/아래쪽 선택영역 2개.
-  // 책상 크기 및 좌석 순서는 공유 링크 호환성을 위해 보존합니다.
+  // 5층 마지막 줄에 책상 하나를 추가하되, 기존 구역의 위치 공유 식별자 순서는 바꾸지 않습니다.
+  // 층별로 SVG 가로좌표 범위를 달리하여, 4층은 변경하지 않고 5층만 외곽 벽을 확장합니다.
   // start~end는 각 구역의 첫 책상 상단 y 좌표입니다. 행 간격은 자동 계산합니다.
   const spreadRows = (start, end, count) =>
     Array.from({length:count}, (_,i) => Math.round(start+(end-start)*i/(count-1)));
@@ -233,19 +235,21 @@
       floor:[775,29,286,215],
       walls:[
         'M26 840 V23 H582 V319 L640 366',
-        'M582 416 V433 H1152 V635 L1186 674',
-        'M1152 683 V840 H26'
+        'M582 416 V433 H1236 V635 L1270 674',
+        'M1236 683 V840 H26'
       ],
       partition:[26,382,556,34],
-      lockers:[[1062,452,58,132],[1062,673,58,133]],
+      lockers:[[1146,452,58,132],[1146,673,58,133]],
       groups:[
         ['a',50,50,6,80,26,4,4], ['b',50,130,6,80,26,4,4],
         ['c',50,210,6,80,26,4,4], ['d',50,290,6,80,26,4,4],
         ['e',50,below5[0],6,80,26,4,4], ['f',50,below5[1],6,80,26,4,4],
         ['g',50,below5[2],6,80,26,4,4], ['h',50,below5[3],6,80,26,4,4],
-        ['i',598,right5[0],6,69,26,4,3], ['j',598,right5[1],6,69,26,4,3],
-        ['k',598,right5[2],6,69,26,4,3], ['l',598,right5[3],6,69,26,4,3],
-        ['m',598,right5[4],6,69,26,4,3]
+        ['i',682,right5[0],6,69,26,4,3], ['j',682,right5[1],6,69,26,4,3],
+        ['k',682,right5[2],6,69,26,4,3], ['l',682,right5[3],6,69,26,4,3],
+        ['m',682,right5[4],6,69,26,4,3],
+        // 추가 책상은 기존 좌석 링크의 순번이 바뀌지 않도록 배열 끝에 배치.
+        ['n',554,below5[3],1,80,26,4,4]
       ]
     }
   };
@@ -296,13 +300,14 @@
   function draw() {
     const data=layout[current.floor];
     seatElements.clear();map.replaceChildren();
+    map.setAttribute('viewBox', `0 0 ${floorWidth()} ${MAP_H}`);
     map.setAttribute('aria-label',`${current.floor}층 좌석 배치도`);
-    svgEl('rect',{x:0,y:0,width:MAP_W,height:MAP_H,fill:'#fbfcfe'});
+    svgEl('rect',{x:0,y:0,width:floorWidth(),height:MAP_H,fill:'#fbfcfe'});
     // SVG 패턴 한 개로 배경 점들을 그립니다 (수천 개의 개별 DOM 요소 제거).
     const defs=svgEl('defs');
     const pattern=svgEl('pattern',{id:'map-dots',width:30,height:30,patternUnits:'userSpaceOnUse'},defs);
     svgEl('circle',{cx:28,cy:28,r:.65,fill:'#dce3eb'},pattern);
-    svgEl('rect',{x:0,y:0,width:MAP_W,height:MAP_H,fill:'url(#map-dots)','pointer-events':'none'});
+    svgEl('rect',{x:0,y:0,width:floorWidth(),height:MAP_H,fill:'url(#map-dots)','pointer-events':'none'});
     const [fx,fy,fw,fh]=data.floor;
     svgEl('rect',{x:fx,y:fy,width:fw,height:fh,rx:13,class:'floor-block'});
     // 상단 독립 탭을 제거하고, 도면의 녹색 층 영역 자체를 층 선택기로 사용.
@@ -418,8 +423,9 @@
   function updateFit() {
     const availableW=stage.clientWidth,availableH=stage.clientHeight;
     if(availableW<1||availableH<1)return;
-    const base=Math.min((availableW-14)/MAP_W,(availableH-14)/MAP_H);
-    const drawW=Math.max(1,MAP_W*base*current.zoom),drawH=Math.max(1,MAP_H*base*current.zoom);
+    const viewW=floorWidth();
+    const base=Math.min((availableW-14)/viewW,(availableH-14)/MAP_H);
+    const drawW=Math.max(1,viewW*base*current.zoom),drawH=Math.max(1,MAP_H*base*current.zoom);
     canvas.style.width=`${drawW}px`;canvas.style.height=`${drawH}px`;
     align.style.width=`${Math.max(availableW,drawW)}px`;
     align.style.height=`${Math.max(availableH,drawH)}px`;
@@ -431,7 +437,7 @@
       let rx=.5,ry=.5;
       if(current.key) {
         const seat=seatElements.get(current.key);
-        if(seat){const b=seat.getBBox();rx=(b.x+b.width/2)/MAP_W;ry=(b.y+b.height/2)/MAP_H;}
+        if(seat){const b=seat.getBBox();rx=(b.x+b.width/2)/viewW;ry=(b.y+b.height/2)/MAP_H;}
       }
       stage.scrollLeft=Math.max(0,(Math.max(availableW,drawW)-availableW)*rx);
       stage.scrollTop=Math.max(0,(Math.max(availableH,drawH)-availableH)*ry);
