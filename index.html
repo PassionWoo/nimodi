@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#f7f9fc">
 <meta name="description" content="니모디 NimOdi — 교육장 안의 좌석과 공간을 선택하고 링크로 공유하세요.">
-<title>니모디 · NimOdi v2.4</title>
+<title>니모디 · NimOdi v2.5</title>
 <style>
 :root{color-scheme:light;--bg:#f5f7fb;--surface:#fff;--ink:#202b3e;--muted:#78869b;--line:#dde5ee;--pink:#ef497b;--pink-dark:#cf285f;--desk:#e2e9f2;--desk-border:#9aabc0;--green:#287c58}
 *{box-sizing:border-box}
@@ -179,7 +179,7 @@ button:focus-visible,select:focus-visible{outline:3px solid #f35b90;outline-offs
 <body>
 <div class="shell">
 <header class="top">
- <div class="brand" aria-label="니모디 NimOdi"><div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h3m10 0h3v3M4 17v3h3m10 0h3v-3m-8-4 2.5 2.5L19 9"/></svg></div><div><span class="brand-name">니모디</span><span class="brand-latin">NimOdi</span></div><span class="version">v2.4</span></div>
+ <div class="brand" aria-label="니모디 NimOdi"><div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h3m10 0h3v3M4 17v3h3m10 0h3v-3m-8-4 2.5 2.5L19 9"/></svg></div><div><span class="brand-name">니모디</span><span class="brand-latin">NimOdi</span></div><span class="version">v2.5</span></div>
 </header>
 <main class="workspace">
  <section class="map-panel" aria-label="위치 공유 지도">
@@ -212,7 +212,7 @@ map.setAttribute('viewBox',`0 0 ${W} ${H}`);
 const state={floor:4,key:null,zoom:1,received:false};
 const uiMap=new Map();
 const COLORS={line:'#526174'};
-// Legacy seat indexes are kept independent of the revised geometry: old Discord links continue to resolve.
+// Preserve previous seat IDs and ordering: the added lower-left desk is n, after i-m.
 const historicCounts={4:[6,6,6,6,6,6,6,3,11],5:[6,6,6,6,6,6,6,6,6,6,6,6,6,1]};
 const legacy={};
 for(const floor of [4,5]){
@@ -230,7 +230,8 @@ const D={
  5:[
   ['a',53,41,6],['b',53,101,6],['c',53,161,6],['d',53,221,6],
   ['e',53,326,6],['f',53,386,6],['g',53,446,6],['h',53,506,6],
-  ['i',361,326,6],['j',361,371,6],['k',361,416,6],['l',361,461,6],['m',361,506,6]
+  ['i',405,326,6],['j',405,371,6],['k',405,416,6],['l',405,461,6],['m',405,506,6],
+  ['n',317,506,1]
  ]
 };
 // SVG polygons are used for nonrectangular features. All coordinates follow the supplied clean floorplans.
@@ -263,8 +264,8 @@ const A={
   ['cw9','코워킹 9',933,71,131,61,'room',['코워킹 9'],18],
   ['facil','퍼실룸',933,132,131,44,'room',['퍼실룸'],18],
   ['wall','벽면 좌식 좌석',933,176,131,225,'wallseat',['벽면','좌식','좌석'],13],
-  ['locker1','사물함',669,326,44,91,'facility',['사','물','함'],14],
-  ['locker2','사물함',669,461,44,76,'facility',['사','물','함'],14],
+  ['locker1','사물함',691,326,44,91,'facility',['사','물','함'],14],
+  ['locker2','사물함',691,461,44,76,'facility',['사','물','함'],14],
   ['water','정수기',845,416,132,46,'facility',['정수기'],16],
   ['sofa1','마주보기 소파 부스',802,521,44,45,'sofa',['마주보기','소파부스'],9],
   ['sofa2','마주보기 소파 부스',846,521,44,45,'sofa',['마주보기','소파부스'],9],
@@ -360,12 +361,9 @@ function drawDesks(){
    svg('line',{x1:px,y1:y+15,x2:px+w,y2:y+15,class:'desk-mid'},container);
   }
  }
- // Old layouts contained an additional desk in one historical group. Resolve those old links
- // to the nearest current desk rather than showing a nonexistent desk on the clean source plan.
+ // A historical 4F discrepancy is still aliased; the 5F added 'n' desk is real and independent.
  if(state.floor===4){
    for(let side=0;side<2;side++)uiMap.set(`h.${side}.2`,uiMap.get(`h.${side}.1`));
- } else{
-   for(let side=0;side<2;side++)uiMap.set(`n.${side}.0`,uiMap.get(`h.${side}.5`));
  }
 }
 function drawWalls(){
@@ -388,7 +386,6 @@ function render(){
 function seatAlias(key){
  if(!key)return null;
  if(state.floor===4&&/^h\.[01]\.2$/.test(key))return key.slice(0,-1)+'1';
- if(state.floor===5&&/^n\.[01]\.0$/.test(key))return key[2]==='0'?'h.0.5':'h.1.5';
  return key;
 }
 function hashFor(floor,key){
